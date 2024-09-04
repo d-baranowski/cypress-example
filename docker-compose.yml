@@ -1,0 +1,197 @@
+services:
+
+  postgres:
+    container_name: ump-postgres
+    build:
+      dockerfile: ./docker/postgres/Dockerfile
+    command: [
+      "postgres",
+      "-c", "log_destination=stderr",
+      #"-c", "shared_preload_libraries=pg_stat_statements,pg_cron,powa,pg_stat_kcache,pg_qualstats",
+      "-c", "shared_preload_libraries=pg_cron",
+      #"-c", "pg_stat_statements.max=10000",
+      #"-c", "pg_stat_statements.track=all",
+      "-c", "wal_level=logical",
+      "-c", "max_wal_senders=10",
+      "-c", "max_replication_slots=10",
+      "-c", "cron.database_name=ump",
+    ]
+    ports:
+      - "5432:5432"
+    restart: always
+    shm_size: 4g
+    volumes:
+      - ./docker/postgres/initdb.d:/docker-entrypoint-initdb.d:ro
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 1s
+      retries: 10
+    networks:
+      - ump
+
+  timescale:
+    container_name: ump-timescale
+    image: timescale/timescaledb:latest-pg15
+    profiles:
+      - timescale
+    ports:
+      - 5433:5432
+    restart: always
+    volumes:
+      - ./docker/timescale/initdb.d:/docker-entrypoint-initdb.d:ro
+      - timescale_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 2s
+      timeout: 1s
+      retries: 10
+    networks:
+      - ump
+
+  rabbitmq:
+    container_name: ump-rabbitmq
+    image: rabbitmq:3.12.9-management
+    hostname: rabbitmq
+    volumes:
+      - rabbit_data:/var/lib/rabbitmq/mnesia'
+      - ./docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbitmq_stream advertised_host localhost
+    ports:
+      - "5552:5552"
+      - "5672:5672"
+      - "15672:15672"
+      - "15692:15692"
+    networks:
+      - ump
+
+  redis:
+    container_name: ump-redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    environment:
+      REDIS_PASSWORD: password
+    command: sh -c 'redis-server --save 20 1 --loglevel warning --requirepass $${REDIS_PASSWORD}'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: redis-cli -a $${REDIS_PASSWORD} ping | grep PONG
+      interval: 2s
+      timeout: 1s
+      retries: 10
+    networks:
+      - ump
+
+  otel-collector:
+    profiles:
+      - all
+      - tracing
+    image: otel/opentelemetry-collector-contrib:0.98.0
+    restart: always
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    volumes:
+      - ./docker/otel/collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP gRPC receiver
+
+  tempo:
+    profiles:
+      - tracing
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./docker/tempo/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/tmp
+  #    ports:
+  #      - "14268:14268"  # jaeger ingest
+  #      - "3200:3200"   # tempo
+  #      - "9095:9095" # tempo grpc
+  #      - "4317:4317"  # otlp grpc
+  #      - "4318:4318"  # otlp http
+  #      - "9411:9411"   # zipkin
+
+  prometheus:
+    profiles:
+      - tracing
+    image: prom/prometheus:latest
+    command:
+      - --config.file=/etc/prometheus.yaml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+    volumes:
+      - ./docker/tempo/prometheus.yaml:/etc/prometheus.yaml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    profiles:
+      - tracing
+    image: grafana/grafana:10.2.2
+    volumes:
+      - ./docker/tempo/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor traceQLStreaming metricsSummary
+    ports:
+      - "3010:3000"
+
+  jaeger:
+    profiles:
+      - jaeger-tracing
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      COLLECTOR_OTLP_HTTP_PORT: 4318
+
+  etcd:
+    image: docker.io/bitnami/etcd:latest
+    container_name: ump-etcd
+    restart: always
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      #- ETCD_NAME=etcd
+      #- ETCD_INITIAL_ADVERTISE_PEER_URLS=http://ump-etcd:2380
+      #- ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      #- ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://ump-etcd:2379
+      #- ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster
+      #- ETCD_INITIAL_CLUSTER=ump-etcd-1=http://ump-etcd-1:2380,ump-etcd-2=http://ump-etcd-2:2380,ump-etcd-3=http://ump-etcd-3:2380
+      #- ETCD_INITIAL_CLUSTER_STATE=new
+    networks:
+      - ump
+    ports:
+      - 2379:2379
+      - 2380:2380
+    volumes:
+      - etcd_data:/etcd_data
+
+networks:
+  ump:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbit_data:
+  tempo-data:
+  timescale_data:
+  etcd_data:
+

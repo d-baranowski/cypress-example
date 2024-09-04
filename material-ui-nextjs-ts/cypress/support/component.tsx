@@ -19,8 +19,14 @@ import './commands'
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
 
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
+import {TransportProvider} from '@connectrpc/connect-query';
 import { mount } from 'cypress/react18'
-
+import {Toaster} from "react-hot-toast";
+import * as React from "react";
+import {ConnectTransport} from "../../src/utils/connect";
+import {createConnectTransport} from "@connectrpc/connect-web";
+import {createRegistry} from "@bufbuild/protobuf";
 // Augment the Cypress namespace to include type definitions for
 // your custom command.
 // Alternatively, can be defined in cypress/support/component.d.ts
@@ -33,7 +39,30 @@ declare global {
   }
 }
 
-Cypress.Commands.add('mount', mount)
+const testTransport = createConnectTransport({
+  baseUrl: 'http://mock-cypress-test.com',
+  jsonOptions: {
+    typeRegistry: createRegistry(
+      //Account,
+    )
+  },
+});
+
+const customMount: typeof mount = (component, options = {}) => {
+  const { ...mountOptions } = options
+  const queryClient = new QueryClient()
+
+  const wrapped = <TransportProvider transport={testTransport}>
+    <QueryClientProvider client={queryClient}>
+      <Toaster />
+      {component}
+    </QueryClientProvider>
+  </TransportProvider>
+
+  return mount(wrapped, mountOptions)
+}
+
+Cypress.Commands.add('mount', customMount)
 
 // Example use:
 // cy.mount(<MyComponent />)

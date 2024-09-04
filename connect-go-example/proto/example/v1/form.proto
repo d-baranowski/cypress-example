@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package example.v1;
+
+option go_package = "example/gen/example/v1;examplev1";
+
+// FormModel definition
+message FormModel {
+  string id = 1;
+  string name = 2;
+  int32 age = 3;
+  string date_time = 4;  // ISO 8601 formatted string for DateTime
+  repeated string skills = 5;
+  string city = 6;
+  repeated int32 range = 7;
+  bool terms_accepted = 8;
+  int32 satisfaction_level = 9;
+  string gender = 10;  // Enum "male", "female", "other"
+  repeated Todo todos = 11;
+}
+
+// Todo item definition
+message Todo {
+  string task = 1;
+}
+
+// Request to create a FormModel
+message CreateFormModelRequest {
+  FormModel form_model = 1;
+}
+
+// Response containing a single FormModel
+message GetFormModelResponse {
+  FormModel form_model = 1;
+}
+
+// Request to get a single FormModel by ID
+message GetFormModelRequest {
+  string id = 1;
+}
+
+// Request to list FormModels with optional pagination
+message ListFormModelsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+// Response for listing FormModels
+message ListFormModelsResponse {
+  repeated FormModel form_models = 1;
+  int32 total_count = 2;
+}
+
+// FormModelService definition
+service FormModelService {
+  // Save a form model
+  rpc SaveFormModel(CreateFormModelRequest) returns (GetFormModelResponse);
+
+  // Get a single form model by ID
+  rpc GetFormModel(GetFormModelRequest) returns (GetFormModelResponse);
+
+  // List all form models with pagination
+  rpc ListFormModels(ListFormModelsRequest) returns (ListFormModelsResponse);
+}
