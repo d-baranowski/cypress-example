@@ -6,32 +6,34 @@ option go_package = "example/gen/example/v1;examplev1";
 
 // FormModel definition
 message FormModel {
-  string id = 1;
+  int64 id = 1;
   string name = 2;
   int32 age = 3;
-  string date_time = 4;  // ISO 8601 formatted string for DateTime
+  string dateTime = 4;  // RFC3339 formatted string for DateTime
   repeated string skills = 5;
   string city = 6;
   repeated int32 range = 7;
-  bool terms_accepted = 8;
-  int32 satisfaction_level = 9;
+  bool termsAccepted = 8;
+  int32 satisfactionLevel = 9;
   string gender = 10;  // Enum "male", "female", "other"
   repeated Todo todos = 11;
 }
 
 // Todo item definition
 message Todo {
-  string task = 1;
+  int64 id = 1;
+  string task = 2;
+  int64 formId = 3;
 }
 
 // Request to create a FormModel
 message CreateFormModelRequest {
-  FormModel form_model = 1;
+  FormModel formModel = 1;
 }
 
 // Response containing a single FormModel
 message GetFormModelResponse {
-  FormModel form_model = 1;
+  FormModel formModel = 1;
 }
 
 // Request to get a single FormModel by ID
@@ -42,13 +44,24 @@ message GetFormModelRequest {
 // Request to list FormModels with optional pagination
 message ListFormModelsRequest {
   int32 page = 1;
-  int32 page_size = 2;
+  int32 pageSize = 2;
 }
 
 // Response for listing FormModels
 message ListFormModelsResponse {
-  repeated FormModel form_models = 1;
-  int32 total_count = 2;
+  repeated FormModel formModels = 1;
+  int32 totalCount = 2;
+}
+
+
+// Request to delete a single FormModel by ID
+message DeleteFormModelRequest {
+  int64 id = 1;
+}
+
+// Response for delete operation
+message DeleteFormModelResponse {
+  bool success = 1;
 }
 
 // FormModelService definition
@@ -61,4 +74,7 @@ service FormModelService {
 
   // List all form models with pagination
   rpc ListFormModels(ListFormModelsRequest) returns (ListFormModelsResponse);
+
+  // Delete a form model by ID
+  rpc DeleteFormModel(DeleteFormModelRequest) returns (DeleteFormModelResponse);
 }

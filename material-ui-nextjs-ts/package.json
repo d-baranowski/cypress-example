@@ -9,6 +9,7 @@
     "lint": "next lint",
     "post-update": "echo \"codesandbox preview only, need an update\" && pnpm update --latest",
     "test": "cypress run --component",
+    "test-e2e": "cypress run --e2e",
     "test-debug": "cypress run --component --headed",
     "cypress:open": "cypress open"
   },

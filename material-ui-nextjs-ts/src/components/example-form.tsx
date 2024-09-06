@@ -31,7 +31,6 @@ const ExampleForm: React.FC<Props> = function ExampleForm(props) {
     setTabValue(newValue);
   };
 
-  const {afterSave} = props;
   const {mutateAsync} = useMutation(saveFormModel);
 
   const {
@@ -57,10 +56,11 @@ const ExampleForm: React.FC<Props> = function ExampleForm(props) {
 
   const t = useTransport();
   const client = createPromiseClient(FormModelService, t)
+
   React.useEffect(() => {
     if (props.id) {
       toast.promise(client.getFormModel({id: String(props.id)}).then(res => {
-        return reset({...res.formModel as any});
+        reset({...res.formModel as any});
       }), {
         loading: 'Loading',
         success: 'Loaded the form',
@@ -86,6 +86,8 @@ const ExampleForm: React.FC<Props> = function ExampleForm(props) {
       success: 'Saved the form',
       error: 'Error when saving',
     });
+
+    props.afterSave();
   };
 
   return (
@@ -176,17 +178,21 @@ const ExampleForm: React.FC<Props> = function ExampleForm(props) {
             )}
           />
 
-          <SliderElement
-            name="satisfactionLevel"
-            label="Satisfaction Level"
-            min={0}
-            max={10}
-            step={1}
-            control={control}
-          />
+          <div data-testid="satisfactionLevel">
+            <SliderElement
+              name="satisfactionLevel"
+              label="Satisfaction Level"
+              min={0}
+              max={10}
+              step={1}
+              control={control}
+            />
+          </div>
+
 
           <CheckboxElement
             name="termsAccepted"
+            data-testid="termsAccepted"
             label="I accept the terms and conditions"
             required
             control={control}
@@ -198,7 +204,7 @@ const ExampleForm: React.FC<Props> = function ExampleForm(props) {
           <Box sx={{mt: 2}}>
             <h4>Todo List</h4>
             {fields.map((item, index) => (
-              <Box key={item.id} sx={{display: "flex", alignItems: "center"}}>
+              <Box data-testid={"task " + (index + 1)} key={item.id} sx={{display: "flex", alignItems: "center"}}>
                 <TextFieldElement
                   name={`todos.${index}.task`}
                   label={`Task ${index + 1}`}
@@ -234,28 +240,46 @@ const ExampleForm: React.FC<Props> = function ExampleForm(props) {
 
 // Define the Zod schema
 const schema = z.object({
-  name: z.string().nonempty("Name is required"),
-  age: z.number().min(1, "Age must be a positive number"),
-  dateTime: z.date(),
-  skills: z.array(z.string()).nonempty("Please select at least one skill"),
-  city: z.string().nonempty("Please select a city"),
-  range: z.array(z.number()).length(2, "Range should have two values"),
-  termsAccepted: z.boolean().refine(val => val === true, "You must accept the terms"),
-  satisfactionLevel: z.number().min(0).max(10),
-  gender: z.enum(["male", "female", "other"]),
-  todos: z.array(
-    z.object({
-      task: z.string().nonempty("Task is required"),
-    })
-  ),
+  name: z.string().min(1, "Name is required"),
+  age:
+    z.number().min(1, "Age must be a positive number"),
+  dateTime:
+    z.date(),
+  skills:
+    z.array(z.string()).nonempty("Please select at least one skill"),
+  city:
+    z.string().min(1, "Please select a city"),
+  range:
+    z.array(z.number()).length(2, "Range should have two values"),
+  termsAccepted:
+    z.boolean().refine(val => val === true, "You must accept the terms"),
+  satisfactionLevel:
+    z.number().min(0).max(10),
+  gender:
+    z.enum(["male", "female", "other"]),
+  todos:
+    z.array(
+      z.object({
+        task: z.string().min(1, "Task is required"),
+      })
+    ),
 });
 
 const skillsOptions = ["JavaScript", "TypeScript", "React", "Node.js"];
 const cityOptions = ["New York", "San Francisco", "Chicago", "Los Angeles"];
 const genderOptions = [
-  {id: 'male', label: 'Male'},
-  {id: 'female', label: 'Female'},
-  {id: 'other', label: 'Other'},
+  {
+    id: 'male', label:
+      'Male'
+  },
+  {
+    id: 'female', label:
+      'Female'
+  },
+  {
+    id: 'other', label:
+      'Other'
+  },
 ];
 
 export default ExampleForm;

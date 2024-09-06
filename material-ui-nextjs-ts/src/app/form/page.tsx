@@ -27,7 +27,10 @@ const Page: React.FunctionComponent<Props> = function Page() {
   const handleAfterSave = () => {
     setSelectedModel(null); // Close the form
     setOpen(false); // Close the dialog
-    tableRef.current?.refetch(); // Refetch the table data after saving
+    // @ts-ignore
+    tableRef.current.refetch();
+    // @ts-ignore
+    tableRef.current?.current?.refetch(); // Refetch the table data after saving
   };
 
   // Function to close the dialog
@@ -44,13 +47,11 @@ const Page: React.FunctionComponent<Props> = function Page() {
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>Form Model</DialogTitle>
         <DialogContent>
-          {selectedModel && (
             <ExampleForm
-              id={selectedModel.id}
+              id={selectedModel?.id}
               afterSave={handleAfterSave}
               onCancel={handleClose} // Close the dialog on cancel
             />
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose} color="primary">
